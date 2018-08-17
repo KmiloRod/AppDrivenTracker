@@ -8,6 +8,11 @@ function Test_ROC_AOS_MVC_train(Distortion,v,Display,varargin)
 % box added during execution. A filename can be added as an input after
 % Display, to generate an AVI video file with the resultant video annotated
 % with the tracked object bounding boxes.
+% This function is used to generate samples for training a classifier for
+% the app-driven quality enhancement of the tracker. Therefore, along with
+% the results metrics, the function saves a cell array with a matrix per
+% frame with patch samples as rows, and location, size and
+% suitable/non-suitable labels as columns.
 
 path(path,'./functions')
 path(path,'./MeanShift_Code')
@@ -107,11 +112,13 @@ location_threshold_array = linspace(0,50,100);
         % false_p_pristine = false_p;
     end
 
-    % Test for each level of distortion
-    for o = 1 : length(Q) 
+    %training_samples = cell(length(Q), numOfFrames);
+    training_samples_obj = cell(length(Q), numOfFrames);
+    training_samples_bg = cell(length(Q), numOfFrames);
 
-        % Only consider first 100 frames of the video
-        % frames = frames(:,:,:,1:100);
+    % Test for each level of distortion
+    for o = 1 : length(Q)
+    %for o = 3
 
         % Generate distorted version of the video
         switch Distortion
@@ -177,9 +184,6 @@ location_threshold_array = linspace(0,50,100);
         else
             I = double(frames(:,:,:,1));
         end
-
-        % Background patches regions calculation
-        [bgP_regions, num_bgRegions] = bg_regions(bgP, imSize);
         
         bgPVar = patchVariance(I,bgP);        
 
@@ -214,19 +218,12 @@ location_threshold_array = linspace(0,50,100);
         %bgKeys = bgKeys(Idist2);
         bgP = bgP(Idist2,:);
         bgPVar = bgPVar(Idist2);
-        bgP_regions = bgP_regions(Idist2);
 
         % Training of SVM classifier
         model = svmtrain2([ones(Nobj,1);zeros(Nbg,1)],double(hogS),'-t 0 -c 100');
         % Accuracy of SVM classifier prediction
         [labels, accuracy_L, ~] = svmpredict2([ones(Nobj,1);zeros(Nbg,1)],hogS,model);
         predict_accuracy(o,1) = accuracy_L(1)/100;
-
-        % Estimation of bgP classification accuracy per background region
-        for r_ind = 1:num_bgRegions
-            bgP_reg_acc(r_ind, 1, o) = sum((bgP_regions == r_ind) & ~labels(Nobj+1:Nobj+Nbg))...
-                / sum(bgP_regions == r_ind);
-        end
         
         % Neighbouring window for object search
         D = searchWindow(objbbox);
@@ -238,11 +235,6 @@ location_threshold_array = linspace(0,50,100);
 
         patch_width = objbbox(1,3); patch_height = objbbox(1,4);        
         
-        % Resize ground truth patch from the first frame to the same size
-        % of object and background patches
-%         gt_center = [gtP(1,1)+round(gtP(1,3)/2), gtP(1,2)+round(gtP(1,4)/2)];
-%         gtP(1,:) = [gt_center(1)-round(patch_width/2), gt_center(2)-round(patch_height/2), patch_width, patch_height];
-        
         % Loops from the second frame to the end
         for i = 2 : size(frames,4)
             i
@@ -253,15 +245,7 @@ location_threshold_array = linspace(0,50,100);
             else
                 I = double(frames(:,:,:,i));
             end
-            
-            % HOG features of the background patches in the current 
-            if isempty(find(isnan(gtP(i,:)), 1))
-                bg_nonOvlp_ind = bboxOverlapRatio(bgP,gtP(i,:))==0;
-            else
-                bg_nonOvlp_ind = 1:size(bgP,1);
-            end
-            hogS_bG = hogNSSFeat(I,bgP(bg_nonOvlp_ind,:),0,0);          
-
+                        
             % If the object was detected in the previous frame, search in the
             % neighbouring window
             if sum(isnan(objbbox(i-1,:)))==0
@@ -271,41 +255,52 @@ location_threshold_array = linspace(0,50,100);
 
                 % HOG features of the window boxes
                 hogS_nxt   = hogNSSFeat(I,bbox,0,0);
-
+                
                 % If there is ground-truth for the current frame
                 if isempty(find(isnan(gtP(i,:)), 1))
-                    % Adjust size of ground-truth patch to match object patches
-%                     gt_center = [gtP(i,1)+round(gtP(i,3)/2), gtP(i,2)+round(gtP(i,4)/2)];
-%                     gtP(i,:) = [gt_center(1)-round(patch_width/2), gt_center(2)-round(patch_height/2), patch_width, patch_height];
 
+                    % HOG features of the background patches in the current frame
+                    bg_nonOvlp_ind = bboxOverlapRatio(bgP,gtP(i,:))==0;
+                    hogS_bG = hogNSSFeat(I,bgP(bg_nonOvlp_ind,:),0,0);
+                    
                     % Label as matches the window patches with overlap greater
-                    % than 0.7 with the ground-truth for accuracy estimation
-                    %labels_gt = bboxOverlapRatio(gtP(i,:),bbox,'Min')>=0.7;
-                    labels_gt = bboxOverlapRatio(gtP(i,:),bbox)>=0.7;
-
+                    % than 0.9 with the ground-truth for accuracy estimation
+                    labels_gt = bboxOverlapRatio(gtP(i,:),bbox,'Min')>=0.9;
+                    %labels_gt = bboxOverlapRatio(gtP(i,:),bbox)>=0.7;
+                    
                     % SVM classifier prediction
                     [labels, ~, ~] = svmpredict2(double(labels_gt'),hogS_nxt,model);
                     [labels_bG, ~, ~] = svmpredict2(zeros(size(hogS_bG,1),1),hogS_bG,model);
                     predict_accuracy(o,i) = length(find(labels(labels_gt)))/length(find(labels_gt));
-
-                    % Estimation of bgP classification accuracy per background region
-                    for r_ind = 1:num_bgRegions
-                        bgP_reg_acc(r_ind, i, o) = sum((bgP_regions(bg_nonOvlp_ind) == r_ind) &...
-                            ~labels_bG) / sum(bgP_regions(bg_nonOvlp_ind) == r_ind);
-                    end
+                    
+                    % Identify patches correctly classified
+                    %suitable = [~xor(labels_gt, labels')'; ~labels_bG];
+                    suitable_obj = labels(labels_gt);
+                    suitable_bg = [labels(~labels_gt); ~labels_bG];
+%                     suitable = ~xor(labels_gt, labels')';
+                    %training_samples{o,i} = [[bbox; bgP(bg_nonOvlp_ind,:)], suitable];
+                    training_samples_obj{o,i} = [bbox(labels_gt,:), suitable_obj];
+                    training_samples_bg{o,i} = [[bbox(~labels_gt,:); bgP(bg_nonOvlp_ind,:)], suitable_bg];
+%                     training_samples{o,i} = [bbox, suitable];
 
                 % If there is no ground-truth for the current frame, does not
                 % calculate prediction accuracy
-                else                
-                    [labels, ~, ~] = svmpredict2(ones(size(bbox,1),1),hogS_nxt,model);
-                    [labels_bG, ~, ~] = svmpredict2(zeros(size(hogS_bG,1),1),hogS_bG,model);
-                    predict_accuracy(o,i) = NaN;
+                else        
+                    % HOG features of the background patches in the current frame
+                    bg_nonOvlp_ind = 1:size(bgP,1);
+                    hogS_bG = hogNSSFeat(I,bgP(bg_nonOvlp_ind,:),0,0);
                     
-                    % Estimation of bgP classification accuracy per background region
-                    for r_ind = 1:num_bgRegions
-                        bgP_reg_acc(r_ind, i, o) = sum((bgP_regions(bg_nonOvlp_ind) == r_ind) &...
-                            ~labels_bG) / sum(bgP_regions(bg_nonOvlp_ind) == r_ind);
-                    end
+                    % SVM classifier prediction
+                    [labels, ~, ~] = svmpredict2(zeros(size(bbox,1),1),hogS_nxt,model);
+                    [labels_bG, ~, ~] = svmpredict2(zeros(size(hogS_bG,1),1),hogS_bG,model);
+                    
+                    % Identify patches correctly classified
+                    %suitable = ~labels_bG;
+                    suitable_bg = ~labels_bG;
+                    %training_samples{o,i} = [bgP, suitable];
+                    training_samples_bg{o,i} = [bgP, suitable_bg];
+                                        
+                    predict_accuracy(o,i) = NaN;            
                 end
 
                 % Select patches that were classified as object (1)
@@ -317,30 +312,36 @@ location_threshold_array = linspace(0,50,100);
                 hogS_nxt = hogNSSFeat(I,wP,0,0);  
 
                 if isempty(find(isnan(gtP(i,:)), 1))  
-%                     gt_center = [gtP(i,1)+round(gtP(i,3)/2), gtP(i,2)+round(gtP(i,4)/2)];
-%                     gtP(i,:) = [gt_center(1)-round(patch_width/2), gt_center(2)-round(patch_height/2), patch_width, patch_height];
 
-                    %labels_gt = bboxOverlapRatio(gtP(i,:),wP,'Min')>=0.7;
-                    labels_gt = bboxOverlapRatio(gtP(i,:),wP)>=0.7;
+                    labels_gt = bboxOverlapRatio(gtP(i,:),wP,'Min')>=0.9;
+                    %labels_gt = bboxOverlapRatio(gtP(i,:),wP)>=0.7;
                     [labels, ~, ~] = svmpredict2(double(labels_gt'),hogS_nxt,model);
-                    [labels_bG, ~, ~] = svmpredict2(zeros(size(hogS_bG,1),1),hogS_bG,model);
+%                     [labels_bG, ~, ~] = svmpredict2(zeros(size(hogS_bG,1),1),hogS_bG,model);
                     predict_accuracy(o,i) = length(find(labels(labels_gt)))/length(find(labels_gt));               
 
-                    % Estimation of bgP classification accuracy per background region
-                    for r_ind = 1:num_bgRegions
-                        bgP_reg_acc(r_ind, i, o) = sum((bgP_regions(bg_nonOvlp_ind) == r_ind) &...
-                            ~labels_bG) / sum(bgP_regions == r_ind);
-                    end
+                    % Identify patches correctly classified
+                    %suitable = ~xor(labels_gt, labels');
+                    suitable_obj = labels(labels_gt);
+                    suitable_bg = labels(~labels_gt);
+                    %training_samples{o,i} = [wP, suitable'];
+                    training_samples_obj{o,i} = [wP(labels_gt,:), suitable_obj];
+                    training_samples_bg{o,i} = [wP(~labels_gt,:), suitable_bg];
                 else
-                    [labels, ~, ~] = svmpredict2(ones(size(wP,1),1),hogS_nxt,model);
-                    [labels_bG, ~, ~] = svmpredict2(zeros(size(hogS_bG,1),1),hogS_bG,model);
-                    predict_accuracy(o,i) = NaN;
+                    % HOG features of the background patches in the current frame
+                    bg_nonOvlp_ind = 1:size(bgP,1);
+                    hogS_bG = hogNSSFeat(I,bgP(bg_nonOvlp_ind,:),0,0);
                     
-                    % Estimation of bgP classification accuracy per background region
-                    for r_ind = 1:num_bgRegions
-                        bgP_reg_acc(r_ind, i, o) = sum((bgP_regions(bg_nonOvlp_ind) == r_ind) &...
-                            ~labels_bG) / sum(bgP_regions(bg_nonOvlp_ind) == r_ind);
-                    end
+                    % SVM classifier prediction
+                    [labels, ~, ~] = svmpredict2(zeros(size(wP,1),1),hogS_nxt,model);
+                    [labels_bG, ~, ~] = svmpredict2(zeros(size(hogS_bG,1),1),hogS_bG,model);
+                    
+                    % Identify patches correctly classified
+                    %suitable = ~labels_bG;
+                    suitable_bg = ~labels_bG;
+                    %training_samples{o,i} = [bgP, suitable];
+                    training_samples_bg{o,i} = [bgP, suitable_bg];
+                    
+                    predict_accuracy(o,i) = NaN;              
                 end
                 objP_nxt = wP(labels==1,:);        
             end
@@ -353,13 +354,9 @@ location_threshold_array = linspace(0,50,100);
                 x0 = objbbox(i-1,1); y0 = objbbox(i-1,2);
                 W1 =objbbox(i-1,3); H = objbbox(i-1,4);
                 
-                % Estimation of bgP classification accuracy per background region
-                [labels_bG, ~, ~] = svmpredict2(zeros(size(hogS_bG,1),1),hogS_bG,model);
-                for r_ind = 1:num_bgRegions
-                    bgP_reg_acc(r_ind, i, o) = sum((bgP_regions(bg_nonOvlp_ind) == r_ind) &...
-                        ~labels_bG) / sum(bgP_regions(bg_nonOvlp_ind) == r_ind);
-                end                
-
+                % Classification of background patches for quality training labeling
+%                 [labels_bG, ~, ~] = svmpredict2(zeros(size(hogS_bG,1),1),hogS_bG,model);
+                
                 % Conversion from RGB to Indexed colours
                 % to compute the colour probability functions (PDFs)                    
                 if size(frames,3) == 3
@@ -403,6 +400,22 @@ location_threshold_array = linspace(0,50,100);
                 end
                 if loss == 0
                     objP_nxt = round([x0,y0,W1,H]); % Object detected
+                    
+                    % Identify if the target patch was correctly detected
+%                     if isempty(find(isnan(gtP(i,:)), 1))
+%                         
+%                         labels_gt = bboxOverlapRatio(gtP(i,:),objP_nxt,'Min')>=0.9;                        
+%                         
+%                         % HOG features of the object and background patches in the current frame
+%                         bg_nonOvlp_ind = bboxOverlapRatio(bgP,gtP(i,:))==0;
+%                         hogS_all = hogNSSFeat(I,[objP_nxt; bgP(bg_nonOvlp_ind,:)],0,0);
+% 
+%                         % SVM classifier prediction (for training)
+%                         [labels, ~, ~] = svmpredict2([1; zeros(size(hogS_bG,1),1)],hogS_all,model);
+% 
+%                         suitable = [~xor(labels_gt, labels(1)')'; ~labels(2:end)];
+%                         training_samples{o,i} = [[objP_nxt; bgP(bg_nonOvlp_ind,:)], suitable];
+%                     end
                 else
                     objP_nxt = [NaN,NaN,NaN,NaN];  % Object not detected
                 end
@@ -543,8 +556,8 @@ location_threshold_array = linspace(0,50,100);
     xlabel('Overlap threshold');
     ylabel('Success rate');
     legend('show','Location','southwest');
-    saveas(gcf,strcat('./Results/Video_',num2str(v),'_SP_',Distortion),'epsc');
-     close;
+    %saveas(gcf,strcat('./Results/Video_',num2str(v),'_SP_',Distortion),'epsc');
+%      close;
 
     % Generate Precision Plots for every level of distortion and the pristine
     % video in one figure
@@ -568,17 +581,20 @@ location_threshold_array = linspace(0,50,100);
     xlabel('Location error threshold');
     ylabel('Precision');
     legend('show','Location','southeast');
-    saveas(gcf,strcat('./Results/Video_',num2str(v),'_PP_',Distortion),'epsc');
-     close;
+    %saveas(gcf,strcat('./Results/Video_',num2str(v),'_PP_',Distortion),'epsc');
+%      close;
 
     % Save tests results
     if strcmp(Distortion,'S & P')
-         save(strcat('./Results/MVC_Results_Video_',num2str(v),'_S_P'),'predict_accuracy','AOS','ROC_accuracy','false_p','fs','total_object_found','location_precision','flag_lvl','final_objbbox','bgP_reg_acc');
+         %save(strcat('./Results/MVC_Results_Video_',num2str(v),'_S_P'),'predict_accuracy','AOS','ROC_accuracy','false_p','fs','total_object_found','location_precision','flag_lvl','final_objbbox','training_samples');
+         save(strcat('./Results/MVC_Results_Video_objBg_',num2str(v),'_S_P'),'predict_accuracy','AOS','ROC_accuracy','false_p','fs','total_object_found','location_precision','flag_lvl','final_objbbox','training_samples_obj','training_samples_bg');
     else
-         save(strcat('./Results/MVC_Results_Video_',num2str(v),'_',Distortion),'predict_accuracy','AOS','ROC_accuracy','false_p','fs','total_object_found','location_precision','flag_lvl','final_objbbox','bgP_reg_acc');
+         %save(strcat('./Results/MVC_Results_Video_',num2str(v),'_',Distortion),'predict_accuracy','AOS','ROC_accuracy','false_p','fs','total_object_found','location_precision','flag_lvl','final_objbbox','training_samples');
+         save(strcat('./Results/MVC_Results_Video_objBg_',num2str(v),'_',Distortion),'predict_accuracy','AOS','ROC_accuracy','false_p','fs','total_object_found','location_precision','flag_lvl','final_objbbox','training_samples_obj','training_samples_bg');
+         
     end
 
     for o = 1 : length(Q)
-        formatSpec = 'In level %u the portion of frames where MS was used is %d.';
+        formatSpec = 'In level %u the portion of frames where MS was used is %2.2f.';
         str = sprintf(formatSpec,o,sum(flag_lvl(o,:))/numOfFrames)
     end

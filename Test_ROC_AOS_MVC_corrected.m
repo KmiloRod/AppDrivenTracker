@@ -66,8 +66,6 @@ location_threshold_array = linspace(0,50,100);
     test = tests_array(v);
     %test = 2;
 
-    tic
-
     % Quality parameters used for generating three severity leves for each
     % distortion
     switch Distortion
@@ -95,7 +93,8 @@ location_threshold_array = linspace(0,50,100);
     imSize = [Height,width];
 
     ovrlp = 1/4; %[1/2 1/3 1/4 1/5];
-    predict_accuracy = zeros(length(Q),numOfFrames);
+    predict_accuracy_obj = zeros(length(Q),numOfFrames);
+    predict_accuracy_nonObj = zeros(length(Q),numOfFrames);
     total_object_found = zeros(length(Q),numOfFrames);
     flag_lvl = zeros(length(Q),numOfFrames);
 
@@ -115,7 +114,7 @@ location_threshold_array = linspace(0,50,100);
         % frames = frames(:,:,:,1:100);
 
         % Generate distorted version of the video
-        switch Distortion
+         switch Distortion
             case 'MPEG4'
                 [frames] = vidnoise(frames_pristine,'MPEG-4',Q(o));
                 frames = uint8(frames);
@@ -177,6 +176,8 @@ location_threshold_array = linspace(0,50,100);
         % Calculation of the Parzen Kernel window
         [k,gx,gy] = Parzen_window(objbbox(1,4),objbbox(1,3),radius,kernel_type,0);
 
+        tic
+        
         if size(frames,3)==3
             I = double(rgb2gray(uint8(frames(:,:,:,1))));
         else
@@ -220,9 +221,11 @@ location_threshold_array = linspace(0,50,100);
         % Training of SVM classifier
         model = svmtrain2([ones(Nobj,1);zeros(Nbg,1)],double(hogS),'-t 0 -c 100');
         % Accuracy of SVM classifier prediction
-        [labels, accuracy_L, ~] = svmpredict2([ones(Nobj,1);zeros(Nbg,1)],hogS,model);
-        predict_accuracy(o,1) = accuracy_L(1)/100;        
-
+        [labels, ~, ~] = svmpredict2([ones(Nobj,1);zeros(Nbg,1)],hogS,model);
+        %predict_accuracy_obj(o,1) = accuracy_L(1)/100;
+        predict_accuracy_obj(o,1) = sum(labels(logical([ones(Nobj,1);zeros(Nbg,1)])))/Nobj;
+        predict_accuracy_nonObj(o,1) = 1-predict_accuracy_obj(o,1);
+        
         % Neighbouring window for object search
         D = searchWindow(objbbox);
 
@@ -231,7 +234,7 @@ location_threshold_array = linspace(0,50,100);
         objbbox(1,:) = objP(1,:);
         Length = size(frames,4);
 
-        patch_width = objbbox(1,3); patch_height = objbbox(1,4);        
+        patch_width = objbbox(1,3); patch_height = objbbox(1,4);
         
         % Resize ground truth patch from the first frame to the same size
         % of object and background patches
@@ -267,17 +270,24 @@ location_threshold_array = linspace(0,50,100);
 
                     % Label as matches the window patches with overlap greater
                     % than 0.7 with the ground-truth for accuracy estimation
-                    labels_gt = bboxOverlapRatio(gtP(i,:),bbox)>=0.7;
+                    %labels_gt = bboxOverlapRatio(gtP(i,:),bbox)>=0.7;
+                    labels_gt = bboxOverlapRatio(gtP(i,:),bbox,'Min')>=0.9;
 
-                    % SVM classifier prediction
+                    % SVM classifier prediction and target classification
+                    % accuracy estimation
                     [labels, ~, ~] = svmpredict2(double(labels_gt'),hogS_nxt,model);
-                    predict_accuracy(o,i) = length(find(labels(labels_gt)))/length(find(labels_gt));
+                    predict_accuracy_obj(o,i) = sum(labels(labels_gt))/sum(labels_gt);
+
+                    % Non-object patches classification accuracy estimation
+                    predict_accuracy_nonObj(o,i) = sum(labels(~labels_gt))/sum(~labels_gt);
 
                 % If there is no ground-truth for the current frame, does not
-                % calculate prediction accuracy
+                % calculate target and non-target prediction accuracy.
+                % Background classification accuracy is calculated.
                 else                
                     [labels, ~, ~] = svmpredict2(ones(size(bbox,1),1),hogS_nxt,model);
-                    predict_accuracy(o,i) = NaN;
+                    predict_accuracy_obj(o,i) = NaN;
+                    predict_accuracy_nonObj(o,i) = NaN;
                 end
 
                 % Select patches that were classified as object (1)
@@ -292,12 +302,17 @@ location_threshold_array = linspace(0,50,100);
 %                     gt_center = [gtP(i,1)+round(gtP(i,3)/2), gtP(i,2)+round(gtP(i,4)/2)];
 %                     gtP(i,:) = [gt_center(1)-round(patch_width/2), gt_center(2)-round(patch_height/2), patch_width, patch_height];
 
-                    labels_gt = bboxOverlapRatio(gtP(i,:),wP)>=0.7;
+                    %labels_gt = bboxOverlapRatio(gtP(i,:),wP)>=0.7;
+                    labels_gt = bboxOverlapRatio(gtP(i,:),wP,'Min')>=0.9;
                     [labels, ~, ~] = svmpredict2(double(labels_gt'),hogS_nxt,model);
-                    predict_accuracy(o,i) = length(find(labels(labels_gt)))/length(find(labels_gt));               
+                    predict_accuracy_obj(o,i) = length(find(labels(labels_gt)))/length(find(labels_gt)); 
+
+                    % Non-object patches classification accuracy estimation
+                    predict_accuracy_nonObj(o,i) = sum(labels(~labels_gt))/sum(~labels_gt);
                 else
                     [labels, ~, ~] = svmpredict2(ones(size(wP,1),1),hogS_nxt,model);
-                    predict_accuracy(o,i) = NaN;
+                    predict_accuracy_obj(o,i) = NaN;
+                    predict_accuracy_nonObj(o,i) = NaN;
                 end
                 objP_nxt = wP(labels==1,:);        
             end
@@ -347,8 +362,8 @@ location_threshold_array = linspace(0,50,100);
                     if loss == 1
                         break;
                     else
-                    y0 = y;
-                    x0 = x;
+                        y0 = y;
+                        x0 = x;
                     end
                 end
                 if loss == 0
@@ -367,45 +382,60 @@ location_threshold_array = linspace(0,50,100);
 
                 % Update object model and retrain SVM
                 if flag(i) == 0
+                        
+                    % Update canonical HOG representation of background
+                    % patches using the maximum variance change (mvc)
+                    % strategy
+                    [hogS,bgPVar] = bgUpdate(I,'mvc',0.05,objbbox(i,:),bgP,bgPVar,hogS);
 
-                        [hogS,bgPVar] = bgUpdate(I,'mvc',0.05,objbbox(i,:),bgP,bgPVar,hogS);
+                    % Estimate BRIEF representation of detected object
+                    % patch for determining if it is suitable to update the
+                    % canonical representation
+                    I_objP  = selectPatch(I,objbbox(i,:));
+                    objCode = briefDescriptor(I_objP,points);
+                    
+                    % Calculate distance of BRIEF representation of
+                    % detected object patch with the original patch BRIEF
+                    % representation (1st frame) and compare it with a
+                    % threshold. If the detected target is close enough,
+                    % update the object canonical HOG representation (hogS)
+                    if min(pdist2(objCode,binCode,'hamming')) <= bgTsh4 
+                        disp(':|')
+                        hogSobj = hogNSSFeat(I,objbbox(i,:),0,1);
 
-                        I_objP  = selectPatch(I,objbbox(i,:));
-                        objCode = briefDescriptor(I_objP,points);
-                        if min(pdist2(objCode,binCode,'hamming')) <= bgTsh4 
-                            disp(':|')
-                            hogSobj = hogNSSFeat(I,objbbox(i,:),0,1);
-
-                            dist1_add = sqrt(sum((hogSobj - hogSobj_avg).^2,2));
-                            if Nobj == Nobj_max
-                                hogS(Nobj,:) = hogSobj;
-                                objP(Nobj,:) = objbbox(i,:);
-                                objFrames(Nobj) = i;
-                                binCode(Nobj,:) = objCode;
-                                dist1_(Nobj)     = dist1_add;
-                            else
-                                hogS    = [hogS(1:Nobj,:);hogSobj;hogS(Nobj+1:Nobj+Nbg,:)]; 
-                                objP    = [objP;objbbox(i,:)];
-                                objFrames = [objFrames;i];
-                                binCode   = [binCode;objCode];                            
-                                dist1_    = [dist1_;dist1_add];
-                                Nobj      = Nobj + 1;
-                            end
-                            [dist1_,Idist1] = sort(dist1_,'ascend');
-                            hogS(1:Nobj,:) = hogS(Idist1,:);
-                            binCode = binCode(Idist1,:);
-                            objFrames = objFrames(Idist1);
-                            objP    = objP(Idist1,:);
+                        dist1_add = sqrt(sum((hogSobj - hogSobj_avg).^2,2));
+                        % If the maximum allowed number of object patches
+                        % was reached, replace old patches with the new
+                        % one. Else, add them to the hogS matrix.
+                        if Nobj == Nobj_max
+                            hogS(Nobj,:) = hogSobj;
+                            objP(Nobj,:) = objbbox(i,:);
+                            objFrames(Nobj) = i;
+                            binCode(Nobj,:) = objCode;
+                            dist1_(Nobj)     = dist1_add;
+                        else
+                            hogS    = [hogS(1:Nobj,:);hogSobj;hogS(Nobj+1:Nobj+Nbg,:)]; 
+                            objP    = [objP;objbbox(i,:)];
+                            objFrames = [objFrames;i];
+                            binCode   = [binCode;objCode];                            
+                            dist1_    = [dist1_;dist1_add];
+                            Nobj      = Nobj + 1;
                         end
-                        hogSobj_avg = mean(hogS(1:Nobj,:));
+                        [dist1_,Idist1] = sort(dist1_,'ascend');
+                        hogS(1:Nobj,:) = hogS(Idist1,:);
+                        binCode = binCode(Idist1,:);
+                        objFrames = objFrames(Idist1);
+                        objP    = objP(Idist1,:);
+                    end
+                    hogSobj_avg = mean(hogS(1:Nobj,:));
 
-                        hogSbg_avg  = mean(hogS(Nobj+1:Nobj+Nbg,:));
-                        dist2 = pdist2(hogS(Nobj+1:Nobj+Nbg,:),hogSbg_avg);
-                        [~,Idist2] = sort(dist2,'ascend');
-                        hogS(Nobj+1:Nobj+Nbg,:) = hogS(Idist2+Nobj,:);
+                    hogSbg_avg  = mean(hogS(Nobj+1:Nobj+Nbg,:));
+                    dist2 = pdist2(hogS(Nobj+1:Nobj+Nbg,:),hogSbg_avg);
+                    [~,Idist2] = sort(dist2,'ascend');
+                    hogS(Nobj+1:Nobj+Nbg,:) = hogS(Idist2+Nobj,:);
 
-                        % SVM classifier retraining
-                        model = svmtrain2([ones(Nobj,1);zeros(Nbg,1)],double(hogS),'-t 0 -c 100');
+                    % SVM classifier retraining
+                    model = svmtrain2([ones(Nobj,1);zeros(Nbg,1)],double(hogS),'-t 0 -c 100');
                 end
             else
                 objbbox(i,:) = [NaN,NaN,NaN,NaN];  % Object not detected (lost)
@@ -466,9 +496,8 @@ location_threshold_array = linspace(0,50,100);
         if nargin>3
             generateBboxVideoMP4(strcat(varargin{1},'_',num2str(o)),frames,objbbox,100,24) 
         end
+        toc        
     end
-
-    toc
 
     % Generate Success Plots for every level of distortion and the pristine
     % video in one figure
@@ -521,13 +550,13 @@ location_threshold_array = linspace(0,50,100);
 %     close;
 
     % Save tests results
-%     if strcmp(Distortion,'S & P')
-%          save(strcat('./Results/MVC_Results_Video_',num2str(v),'_S_P'),'predict_accuracy','AOS','ROC_accuracy','false_p','fs','total_object_found','location_precision','flag_lvl','final_objbbox');
-%     else
-%          save(strcat('./Results/MVC_Results_Video_',num2str(v),'_',Distortion),'predict_accuracy','AOS','ROC_accuracy','false_p','fs','total_object_found','location_precision','flag_lvl','final_objbbox');
-%     end
+    if strcmp(Distortion,'S & P')
+         save(strcat('./Results/MVC_Results_Video_',num2str(v),'_S_P'),'predict_accuracy_obj','predict_accuracy_nonObj','AOS','ROC_accuracy','false_p','fs','total_object_found','location_precision','flag_lvl','final_objbbox');
+    else
+         save(strcat('./Results/MVC_Results_Video_',num2str(v),'_',Distortion),'predict_accuracy_obj','predict_accuracy_nonObj','AOS','ROC_accuracy','false_p','fs','total_object_found','location_precision','flag_lvl','final_objbbox');
+    end
 
     for o = 1 : length(Q)
-        formatSpec = 'In level %u the portion of frames where MS was used is %d.';
+        formatSpec = 'In level %u the portion of frames where MS was used is %2.2f.';
         str = sprintf(formatSpec,o,sum(flag_lvl(o,:))/numOfFrames)
     end
