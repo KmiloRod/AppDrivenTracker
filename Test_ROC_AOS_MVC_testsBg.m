@@ -2,9 +2,8 @@ function Test_ROC_AOS_MVC_testsBg(v,Display)
 % Generates success plots from the tracker performance on the video number
 % v affected by three levels of the distortion of image quality specified
 % by the string Distortion ('pristine', 'MPEG4', 'Gaussian', 'S & P' or
-% 'Blur'). NSS = 1 includes NSS features in the SVM training; NSS = 0 uses
-% only HOG features. The parameter Cs is the scaling factor for the NSS
-% features (Cs = 1 denotes no scaling).
+% 'Blur'). Generates tests results files with 10 different random
+% background patches distribution.
 
 path(path,'./functions')
 path(path,'./MeanShift_Code')
@@ -125,10 +124,10 @@ for test = 1:10
     [objP,context,bgP,bgKeys,binCode,points,bgTsh4,...
     CellSize,BlockSize,...
     BlockOverlap,Numbins,N_HOG] = FBTandMSTInit(objbbox,frames(:,:,:,1));
-    save(strcat(bboxName,'Test',num2str(test)),...
-        'objP','bgP','objbbox','context','bgKeys',...
-        'binCode','points','bgTsh4',...
-        'CellSize','BlockSize','BlockOverlap','Numbins','N_HOG');
+%    save(strcat(bboxName,'Test',num2str(test)),...
+%        'objP','bgP','objbbox','context','bgKeys',...
+%        'binCode','points','bgTsh4',...
+%        'CellSize','BlockSize','BlockOverlap','Numbins','N_HOG');
 
 %     % Load variables for the video (object and background boxes, etc.)
 %     load(strcat(bboxName,'Test',num2str(test)),...
@@ -237,9 +236,6 @@ for test = 1:10
             hogS_nxt   = hogNSSFeat(I,bbox,0,0);            
 
             % If there is ground-truth for the current frame
-            if i==75
-                i
-            end
             if isempty(find(isnan(gtP(i,:)), 1))
                 % Adjust size of ground-truth patch to match object patches
 %                 gt_center = [gtP(i,1)+round(gtP(i,3)/2), gtP(i,2)+round(gtP(i,4)/2)];

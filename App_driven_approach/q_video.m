@@ -1,4 +1,15 @@
 function [q_bg_all, q_obj_all] = q_video(v, Distortion, numOfFrames)
+% This function calculates the app-driven quality metrics q_bg and q_obj
+% for all the background and object patches in a given video. V is a scalar
+% specifying the video index, DISTORTION is a string with the name of a
+% distortion applied, and NUMOFFRAMES is the desired number of frames from
+% the video to be processed.
+% The function outputs matrices Q_BG_ALL and Q_OBJ_ALL, which contain the
+% values of the average of the q_bg metric for all the background patches
+% in each frame, and the value of tyhe q_obj metric for the object patch
+% from each frame respectively. Each row of the matrices corresponds to a
+% level of distortion applied, and each column to a frame from the
+% sequence.
 
 path(path,'../videos')
 path(path,'../bbox_configs')

@@ -1,4 +1,10 @@
 function [region, num_regions] = bg_regions(bgP, frame_size)
+% This function determines to which of 9 spatial regions of the video frame
+% belongs each of the background patches in bgP. The function receives as
+% inputs the bgP matrix, and an array with the frame size.
+% The function outputs an array of indeces of the region in which each
+% background patch is located (region) and the number of regions in which
+% is divided the frame (num_regions)
 
 num_rows = 3; num_cols = 3;
 row_height = round(frame_size(1)/num_rows);

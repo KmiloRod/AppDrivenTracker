@@ -1,13 +1,14 @@
-% Function to extract quality features from patches to be used as training
-% samples for a regressor mapping the quality features to
-% application-driven quality metrics. The output is a matrix where each
-% row is a patch sample, the colums are the quality features, and the last
-% column is the label (q_bg or q_obj depending on wether the patch
-% contains background or target information respectively)
+% Function to extract FRIQUEE quality features from patches to be used as
+% training samples for a classifier mapping the quality features to
+% application-driven classes (suitable or non-suitable). The output is a
+% matrix where each row is a patch sample, the colums are the quality
+% features, and the last column is the label (1 or 0 depending on wether
+% the patch is suitable or non-suitable for detection purposes)
 
-function [gT_features, gT_q_values] = gT_samples_extraction_FRIQUEE(v, ...
-    numOfFrames, Distortion)
-
+function [training_features_obj, training_features_bg, training_labels_obj, ...
+    training_labels_bg] = gT_samples_extraction_FRIQUEE(v, ...
+    Distortion, varargin)
+tic
 w = warning('off','all');
 
 path(path,'../videos')
@@ -48,29 +49,20 @@ vidName = {'car',...        % 1
         'mountainbike',...  % 29
         'subway'};          % 30
     
-% List of tests numbers that yielded the best F-score for each video
-% (different background distributions)
-tests_array = [2, 1, 5, 8, 5, 4, 4, 6, 1, 9, 8, 8, 7, 1, 8, 7, 1, 3, 9, 9, 2, 1, 5, 2, 6, 4, 4, 1, 4, 10];
-test = tests_array(v);
-
 % Loading video file and parameters
 load(vidName{v},'frames');
-if numOfFrames ~= 0
-    frames_pristine = frames(:,:,:,1:numOfFrames);
-else
+if nargin<3
     frames_pristine = frames;
-    numOfFrames = size(frames,4);
+    numOfFrames = size(frames,4);    
+else
+    numOfFrames = varargin{1};
+    if size(frames,4) > numOfFrames
+        frames_pristine = frames(:,:,:,1:numOfFrames);
+    else
+        frames_pristine = frames;
+        numOfFrames = size(frames,4);    
+    end
 end
-
-load(strcat('MVC_Results_Video_',num2str(v),'_pristine'),'final_objbbox','bgP_reg_acc');
-objbbox_pristine = final_objbbox{1};
-bgP_acc_prst = bgP_reg_acc;
-
-Height = size(frames,1);
-width = size(frames,2);
-imSize = [Height,width];
-
-% patch_width = objbbox_pristine(1,3); patch_height = objbbox_pristine(1,4);
 
 % Quality parameters used for generating three severity leves for each
 % distortion
@@ -89,68 +81,11 @@ switch Distortion
         Q = 0;
 end
 
-% Load ground-truth of the video
-load(strcat(vidName{v},'_gt'),'gtP');
-gtP = gtP(1:numOfFrames,:);
-%numOfFrames = size(gtP,1);
+%load(strcat('MVC_Results_Video_',num2str(v),'_',Distortion),'final_objbbox','training_samples');
+load(strcat('MVC_Results_Video_objBg_',num2str(v),'_',Distortion),'final_objbbox','training_samples_obj','training_samples_bg');
+training_features_obj = []; training_labels_obj = [];
+training_features_bg = []; training_labels_bg = [];
 
-% Name of the file with the initial object bounding box
-bboxName = strcat('bbox_',vidName{v});
-
-load(strcat(bboxName,'Test',num2str(test)),'bgP');
-% points = points;
-Nbg  = size(bgP,1);     % Number of background patches
-
-% % Pristine case
-% bgP_dist_prst = zeros(Nbg, numOfFrames-1);
-% wait_h = waitbar(0,'Calculating metrics for pristine case');
-% for i = 2:numOfFrames
-%     waitbar(i/numOfFrames,wait_h);
-%     gtP_curr = gtP(i,:);
-%     if sum(isnan(gtP_curr))~=0
-%         bgP_dist_prst(:,i-1) = NaN(Nbg,1);
-%         continue
-%     end
-%     
-%     % Adjust size of ground-truth patch to match background patches
-%     gt_center = [gtP_curr(1)+round(gtP_curr(3)/2), gtP_curr(2)+round(gtP_curr(4)/2)];
-%     gtP_curr = [gt_center(1)-round(patch_width/2), gt_center(2)-round(patch_height/2), patch_width, patch_height];
-%     
-%     % Calculation of BRIEF descriptor from ground-truth object patch
-%     if (gtP_curr(1)+patch_width)>size(frames,2) || (gtP_curr(2)+patch_height)>size(frames,1)
-%         bgP_dist_prst(:,i-1) = NaN(Nbg,1);
-%         continue
-%     end
-% 
-%     curr_frame = double(rgb2gray(uint8(frames(:,:,:,i))));
-%     prev_frame = double(rgb2gray(uint8(frames(:,:,:,i-1))));
-%     sub_frame = curr_frame - prev_frame;
-%     gtP_curr(gtP_curr<=0) = 1;
-%     I_objP  = selectPatch(sub_frame,gtP_curr);
-%     objCode = briefDescriptor(I_objP,points);
-%     gtP_curr = gtP(i,:);
-%     
-%     % Calculation of BRIEF descriptor from all background patches
-%     parfor ind = 1:Nbg
-%         if bboxOverlapRatio(gtP_curr,bgP(ind,:))==0
-%             I_bgP  = selectPatch(sub_frame,bgP(ind,:));
-%             bgCode = briefDescriptor(I_bgP,points);
-%             bgP_dist_prst(ind,i) = pdist2(objCode,bgCode,'hamming');
-%         else
-%             bgP_dist_prst(ind,i) = NaN;
-%         end
-%     end
-% end
-% bgP_dist_prst(:,1) = [];
-% close(wait_h);
-
-% Distortion case
-gT_features = []; gT_q_values = [];
-
-load(strcat('MVC_Results_Video_',num2str(v),'_',Distortion),'final_objbbox','bgP_reg_acc');
-curr_bbox = final_objbbox;
-
-q_obj = nan(length(Q),numOfFrames);
 for o = 1 : length(Q)
 %for o = 3
 
@@ -174,86 +109,220 @@ for o = 1 : length(Q)
     end
 
     wait_h = waitbar(0,sprintf('Calculating metrics for %s distortion, level %u',Distortion,o));
-    q_bg_patch = zeros(numOfFrames,1);
-%     bg_features = zeros(72, Nbg, numOfFrames);
-    bg_features = zeros(numOfFrames,72);
     for i = 2:numOfFrames
         waitbar(i/numOfFrames,wait_h);
-        gtP_curr = gtP(i,:);
-        
+            
         % Subtract previous frame from current one
-        curr_frame = double(rgb2gray(uint8(frames(:,:,:,i))));
-        prev_frame = double(rgb2gray(uint8(frames(:,:,:,i-1))));
+        if size(frames,3) == 3
+            curr_frame = double(rgb2gray(uint8(frames(:,:,:,i))));
+            prev_frame = double(rgb2gray(uint8(frames(:,:,:,i-1))));
+        else
+            curr_frame = double(frames(:,:,:,i));
+            prev_frame = double(frames(:,:,:,i-1));
+        end            
         sub_frame = curr_frame - prev_frame;
+        %sub_frame = curr_frame;
 
-        % Resize ground truth patch from the first frame to the same size
-        % of object and background patches
-%         gt_center = [gtP_curr(1)+round(gtP_curr(3)/2), gtP_curr(2)+round(gtP_curr(4)/2)];
-%         gtP_curr = [gt_center(1)-round(patch_width/2), gt_center(2)-round(patch_height/2), patch_width, patch_height];
-
-        % Calculation of BRIEF descriptor from ground-truth object patch
-%         gtP_curr(gtP_curr<=0) = 1;
-%         I_objP  = selectPatch(sub_frame,gtP_curr);
-%         objCode = briefDescriptor(I_objP,points);
-%         gtP_curr = gtP(i,:); 
+        % Load patches selected as possible training samples from the
+        % current frame and distortion level
+        %current_frame_patches = training_samples{o,i};
+        current_frame_patches_obj = training_samples_obj{o,i};
+        current_frame_patches_bg = training_samples_bg{o,i};
         
-        % Estimation of quality metric for object bounding boxes
-        if sum(isnan(curr_bbox{o}(i,:)))==0 && sum(isnan(objbbox_pristine(i,:)))==0
-            I_objP  = selectPatch(sub_frame,curr_bbox{o}(i,:));            
-            q_obj(o,i) = q_obj_estimation(curr_bbox{o}(i,:),objbbox_pristine(i,:),gtP_curr);
-            obj_features(i-1,:) = friqueeLuma(I_objP);
-        else
-            obj_features(i-1,:) = nan(1,size(obj_features,2));
-        end        
-
-        % Calculate q_bg for all background patches
-        [bgP_regions, ~] = bg_regions(bgP, imSize);
-        curr_bgP_acc_prst = bgP_acc_prst(:,i-1);
-        curr_bgP_acc = bgP_reg_acc(:,i-1,o);
-%         for ind = 1:Nbg
-%             if bboxOverlapRatio(gtP_curr,bgP(ind,:))==0
-%                 q_bg_patch(ind,i) = q_bg_estimation(sub_frame,curr_bgP_dist_prst(ind),bgP(ind,:),objCode,points);
-%                 I_bgP  = selectPatch(sub_frame,bgP(ind,:));
-%                 bg_features(:,ind,i) = computeVIIDEOfeaturevector(I_bgP,0, ...
-%                     blocksizerow,blocksizecol,blockrowoverlap,blockcoloverlap,filtlength);
-%             else
-%                 q_bg_patch(ind,i) = NaN;
-%             end
-%         end
-        q_bg = q_bg_estimation(curr_bgP_acc_prst,curr_bgP_acc,bgP_regions);
-        ind = round(Nbg*rand);
-%         for ind=1:Nbg
-        if sum(isnan(gtP_curr))==0
-            while (ind == 0) || (bboxOverlapRatio(gtP_curr,bgP(ind,:))>0)
-    %             if bboxOverlapRatio(gtP_curr,bgP(ind,:))==0
-                ind = round(Nbg*rand);
+        % If there are patches available for training in the current frame
+        if ~isempty(current_frame_patches_obj)
+            % Identify indexes of patches labeled as suitable
+            suitable_index = find(current_frame_patches_obj(:,end));
+            %non_suitable_index = find(~current_frame_patches(:,end));
+            
+            % Number of patches labeled as non-suitable
+            num_suitable = length(suitable_index);
+            num_non_suitable = size(current_frame_patches_obj,1) - num_suitable;
+            %num_non_suitable = length(non_suitable_index);
+            
+            % If the maximum number of samples per frame was specified
+            if nargin>3
+                if varargin{2}>min([num_non_suitable; num_suitable])
+                    samplesPerFrame = min([num_non_suitable; num_suitable]);
+                else
+                    samplesPerFrame = varargin{2};
+                end
+            else
+                samplesPerFrame = min([num_non_suitable; num_suitable]);
             end
-        else
-            while (ind == 0)
-                ind = round(Nbg*rand);
+
+            % If there are non-suitable or suitable patches, generate
+            % training samples for the current frame. If not, the current
+            % frame is ignored
+            if samplesPerFrame
+                if ~num_suitable
+                    num_suitable
+                end                
+                non_suitable_index = find(~current_frame_patches_obj(:,end));
+                if samplesPerFrame < num_non_suitable
+                    new_non_suitable = zeros(samplesPerFrame,1);
+
+                    % Trim the number of non-suitable samples to match the
+                    % number of samples per frame
+                    for k = 1:samplesPerFrame
+                        toRemoveIndex = round(rand*(length(non_suitable_index)-1))+1;
+                        new_non_suitable(k) = non_suitable_index(toRemoveIndex);
+                        non_suitable_index(toRemoveIndex) = [];                        
+                    end
+                    
+                    % Remove the suitable sample patches with significant
+                    % overlap with the non-suitable patches
+%                     suitableOvlp = bboxOverlapRatio(current_frame_patches_obj(suitable_index,1:end-1),current_frame_patches_obj(new_non_suitable,1:end-1));
+%                     [row, ~] = find(suitableOvlp>0.2);
+%                     suitable_index(unique(row)) = [];
+                    
+                    % Trim the number of suitable samples to match the
+                    % number of samples per frame specified as the fourth
+                    % input argument
+%                     for k = 1:samplesPerFrame
+%                         toRemoveIndex = round(rand*(num_suitable-1))+1;
+%                         new_suitable(k) = suitable_index(toRemoveIndex);
+%                         suitable_index(toRemoveIndex) = [];
+%                     end
+                elseif isempty(non_suitable_index)
+                    new_non_suitable = [];
+                else
+                    new_non_suitable = non_suitable_index;
+                end
+                
+                if samplesPerFrame < num_suitable
+                    new_suitable = zeros(samplesPerFrame,1);                                
+
+                    % Remove the suitable sample patches with significant
+                    % overlap with the non-suitable patches
+%                     suitableOvlp = bboxOverlapRatio(current_frame_patches_obj(suitable_index,1:end-1),current_frame_patches_obj(new_non_suitable,1:end-1));
+%                     [row, ~] = find(suitableOvlp>0.2);
+%                     suitable_index(unique(row)) = [];
+
+                    % Trim the number of suitable samples to match the number
+                    % of non-suitable samples in order to avoid unbalance                        
+                    for k = 1:samplesPerFrame
+                        toRemoveIndex = round(rand*(length(suitable_index)-1))+1;
+                        new_suitable(k) = suitable_index(toRemoveIndex);
+                        suitable_index(toRemoveIndex) = [];                            
+                    end
+                elseif isempty(suitable_index)
+                    new_suitable = [];
+                else
+                    new_suitable = suitable_index;
+                end
+                                                
+                % Crop samples matrix
+                current_frame_patches_obj = current_frame_patches_obj([new_suitable; new_non_suitable],:);                
+
+                % Estimation of quality metric for patches, and
+                % concatenation of training features and labels
+                for ind = 1:size(current_frame_patches_obj,1)
+                    I_objP  = selectPatch(sub_frame,current_frame_patches_obj(ind,1:4));
+                    training_features_obj = [training_features_obj; friqueeLuma(I_objP)];
+                    %training_features_obj = [training_features_obj; hogNSSFeat(sub_frame,current_frame_patches_obj,0,0)];
+                    training_labels_obj = [training_labels_obj; current_frame_patches_obj(ind,end)];
+                    %training_labels_obj = [training_labels_obj; current_frame_patches_obj(:,end)];
+                end
             end
         end
-        I_bgP  = selectPatch(sub_frame,bgP(ind,:));
-%         bg_features(:,ind,i) = friqueeLuma(I_bgP);
-        bg_features(i,:) = friqueeLuma(I_bgP);
-        q_bg_patch(i) = q_bg(ind);
-%             else
-%                 q_bg_patch(ind,i) = NaN;
-%             end
-%         end
-    end
-    q_bg_patch(1) = [];
-%     bg_features(:,:,1) = [];
-    bg_features(1,:) = [];
-    q_obj(:,1) = [];
-    
-%     bg_features = reshape(bg_features, size(bg_features,1), [])';
-%     q_bg_patch = reshape(q_bg_patch, [], 1);
+        if ~isempty(current_frame_patches_bg)
+            % Identify indexes of patches labeled as suitable
+            suitable_index = find(current_frame_patches_bg(:,end));
+            %non_suitable_index = find(~current_frame_patches_bg(:,end));
+            
+            % Number of patches labeled as non-suitable
+            num_suitable = length(suitable_index);
+            num_non_suitable = size(current_frame_patches_bg,1) - num_suitable;
+            %num_non_suitable = length(non_suitable_index);
+            
+            % If the maximum number of samples per frame was specified
+            if nargin>3
+                if varargin{2}>min([num_non_suitable; num_suitable])
+                    samplesPerFrame = min([num_non_suitable; num_suitable]);
+                else
+                    samplesPerFrame = varargin{2};
+                end
+            else
+                samplesPerFrame = min([num_non_suitable; num_suitable]);
+            end
 
-    gT_features = [gT_features; bg_features; obj_features];
-    gT_q_values = [gT_q_values; q_bg_patch; q_obj(o,:)'];
+            % If there are non-suitable patches, generate training samples
+            % for the current frame. If not, the current frame is ignored
+            if samplesPerFrame
+                non_suitable_index = find(~current_frame_patches_bg(:,end));                
+                if samplesPerFrame < num_non_suitable
+                    new_non_suitable = zeros(samplesPerFrame,1);
+
+                    % Trim the number of non-suitable samples to match the
+                    % number of samples per frame specified as the fourth
+                    % input argument
+                    for k = 1:samplesPerFrame
+                        toRemoveIndex = round(rand*(length(non_suitable_index)-1))+1;
+                        new_non_suitable(k) = non_suitable_index(toRemoveIndex);
+                        non_suitable_index(toRemoveIndex) = [];                        
+                    end
+                    
+                    % Remove the suitable sample patches with significant
+                    % overlap with the non-suitable patches
+%                     suitableOvlp = bboxOverlapRatio(current_frame_patches_bg(suitable_index,1:end-1),current_frame_patches_bg(new_non_suitable,1:end-1));
+%                     [row, ~] = find(suitableOvlp>0.2);
+%                     suitable_index(unique(row)) = [];
+                    
+                    % Trim the number of suitable samples to match the
+                    % number of samples per frame specified as the fourth
+                    % input argument
+%                     for k = 1:samplesPerFrame
+%                         toRemoveIndex = round(rand*(length(suitable_index)-1))+1;
+%                         new_suitable(k) = suitable_index(toRemoveIndex);
+%                         suitable_index(toRemoveIndex) = [];
+%                     end
+                elseif isempty(non_suitable_index)
+                    new_non_suitable = [];
+                else
+                    new_non_suitable = non_suitable_index;
+                end
+
+                if samplesPerFrame < num_suitable
+                    new_suitable = zeros(samplesPerFrame,1); 
+
+                    % Remove the suitable sample patches with significant
+                    % overlap with the non-suitable patches
+%                     suitableOvlp = bboxOverlapRatio(current_frame_patches_bg(suitable_index,1:end-1),current_frame_patches_bg(new_non_suitable,1:end-1));
+%                     [row, ~] = find(suitableOvlp>0.2);
+%                     suitable_index(unique(row)) = [];
+
+                    % Trim the number of suitable samples to match the number
+                    % of non-suitable samples in order to avoid unbalance                        
+                    for k = 1:samplesPerFrame
+                        toRemoveIndex = round(rand*(length(suitable_index)-1))+1;
+                        new_suitable(k) = suitable_index(toRemoveIndex);
+                        suitable_index(toRemoveIndex) = [];                            
+                    end
+                elseif isempty(suitable_index)
+                    new_suitable = [];
+                else
+                    new_suitable = suitable_index;
+                end
+
+                                                
+                % Crop samples matrix
+                current_frame_patches_bg = current_frame_patches_bg([new_suitable; new_non_suitable],:);
+                
+
+                % Estimation of quality metric for patches, and
+                % concatenation of training features and labels
+                for ind = 1:size(current_frame_patches_bg,1)
+                    I_bgP  = selectPatch(sub_frame,current_frame_patches_bg(ind,1:4));
+                    training_features_bg = [training_features_bg; friqueeLuma(I_bgP)];
+                    %training_features_bg = [training_features_bg; hogNSSFeat(sub_frame,current_frame_patches_bg,0,0)];
+                    training_labels_bg = [training_labels_bg; current_frame_patches_bg(ind,end)];
+                    %training_labels_bg = [training_labels_bg; current_frame_patches_bg(:,end)];
+                end
+            end
+        end        
+    end
     close(wait_h);
 end
-    % Para prueba (borrar)
-    % gT_features = bg_features;
 warning(w);
+toc
