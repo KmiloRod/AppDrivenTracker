@@ -14,10 +14,12 @@ estimateggdparam.m
 
 %}
 function  feat = lapPyramidFeats(imGray)
+% function  res = lapPyramidFeats(imGray)
     addpath('include/matlabPyrTools');
     
     % Extract the first laplacian of the image.
-    [pyr pind] = buildLpyr(imGray,4);
+    %[pyr pind] = buildLpyr(imGray,4);
+    [pyr pind] = buildLpyr(imGray,3);
     res =  pyrBand(pyr, pind, 1);
     
     % Fit a GGD to the laplacian image.

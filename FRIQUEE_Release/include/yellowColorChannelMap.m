@@ -18,6 +18,7 @@ Dependencies: This method depends on the following methods:
    
 %}
 function feat=yellowColorChannelMap(I)
+% function divNormSigY=yellowColorChannelMap(I)
     if(size(I,3) ~=3)
         error('yellowColorChannelMap method requires rgb components of an image\n');
     end

@@ -19,6 +19,7 @@ Bag of Features Approach," http://arxiv.org/abs/1609.04757
 %}
 
 function feat = lmsColorOpponentFeats(lms)
+% function dRG = lmsColorOpponentFeats(lms)
     % Extract the three channel maps (L,M, and S)
     l = double(lms(:,:,1))+1; 
     m = double(lms(:,:,2))+1; 

@@ -26,6 +26,7 @@ IEEE Transactions on Image Processing , vol. 21, no. 12, pp. 4695-4708, December
 %}
 
 function feat = neighboringPairProductFeats(imGray)
+%function npp_map = neighboringPairProductFeats(imGray)
     
     if(size(imGray,3) ~=1)
         warning('The input to fourNeighborhoodFeats is not a double array of gray scale image. Constructing this image now');
@@ -43,11 +44,13 @@ function feat = neighboringPairProductFeats(imGray)
     modelFeat = [];
     sampleFeat = [];
     
+    %npp_map = [];
+    
     for itr_shift =1:4
         % Construct the product neighborhood map.
         shifted_structdis = circshift(structdis,shifts(itr_shift,:));
         pair = structdis(:).*shifted_structdis(:); % Element wise product.
-        
+            
         % Fit an AGGD and extract its parameters.
         [alpha, leftstd, rightstd] = estimateaggdparam(pair);
         const = (sqrt(gamma(1/alpha))/sqrt(gamma(3/alpha)));
@@ -57,6 +60,8 @@ function feat = neighboringPairProductFeats(imGray)
         modelFeat =  [modelFeat alpha meanparam leftstd^2 rightstd^2];
         % Aggregate the sample parameters.
         sampleFeat = [sampleFeat skewness(pair(:)) kurtosis(pair(:))];
+        
+       % npp_map = [npp_map; pair];
     end
     
     feat = [modelFeat sampleFeat];

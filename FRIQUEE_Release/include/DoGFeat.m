@@ -23,7 +23,8 @@ computeSigmaMap.m
 divisiveNormalization.m
 %}
 function feat = DoGFeat(imGray)
-    
+% function divNormDoGSigma = DoGFeat(imGray)
+
     %Get the sigma map of the image.
     sigmaMap = computeSigmaMap(imGray);
     

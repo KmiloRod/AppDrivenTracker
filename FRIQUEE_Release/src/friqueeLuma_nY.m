@@ -1,20 +1,19 @@
 %{ 
 Author: Deepti Ghadiyaram
+Modified by: Camilo Rodriguez
 
-Description: Given an input RGB image, this method extracts the
+Description: Given an input gray image, this method extracts the
 FRIQUEE-Luma features proposed in [1] from the Luminance map of an image.
-It also extracts features from Yellow color channel map
 
 Input: a MXNX3 array of an RGB image 
 
 Output: Features extracted from the luma map (as described in the section
-Luminance Feature Maps and Yellow Color Channel Maps in [1]  
+Luminance Feature Maps in [1]  
 
 Dependencies: This method depends on the following methods:
     neighboringPairProductFeats.m
     sigmaMapFeats.m
     debiasedNormalizedFeats.m
-    yellowColorChannelMap.m
     DoGFeat.m
     lapPyramidFeats.m
 
@@ -22,10 +21,9 @@ Reference:
 [1] D. Ghadiyaram and A.C. Bovik, "Perceptual Quality Prediction on Authentically Distorted Images Using a
 Bag of Features Approach," http://arxiv.org/abs/1609.04757
 %}
-function feat = friqueeLuma(rgb)
+function feat = friqueeLuma_nY(imGray)
     
-    imGray = double(rgb2gray(rgb));
-    %imGray = rgb;
+    %imGray = double(rgb2gray(rgb));
     %% Initializations
     scalenum=2;
     imGray1=imGray;
@@ -54,8 +52,8 @@ function feat = friqueeLuma(rgb)
     imGray=imGray1;
    
     % Features from the Yellow color channel map.
-    yFeat=yellowColorChannelMap(rgb);
-    feat = [feat yFeat];
+%     yFeat=yellowColorChannelMap(imGray);
+%     feat = [feat yFeat];
     
     % Features from the Difference of Gaussian (DoG) of Sigma Map 
     dFeat =DoGFeat(imGray);
