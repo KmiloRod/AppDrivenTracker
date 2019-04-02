@@ -6,7 +6,8 @@
 #include <fstream>
 #include <sstream>
 #include <map>
-#include "fwdfastspatialnss/Imagen.h"
+//#include "fwdfastspatialnss/Imagen.h"
+#include "Imagen.h"
 
 using namespace cv;
 
