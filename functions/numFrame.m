@@ -12,19 +12,21 @@ function num_frame = numFrame(y,k)
   
     sumf=0;
     num_frame = 1:1:size(y,2);
-    init=k(1);
-
-    for i=2:size(k,1)
-        distance(i-1)=k(i)-k(i-1); 
-        if distance(i-1) == 1
-            sumf=sumf+distance(i-1);
-            if i == size(k,1)
+    
+    if isempty(k)==0
+        init=k(1);
+        for i=2:size(k,1)
+            distance(i-1)=k(i)-k(i-1); 
+            if distance(i-1) == 1
+                sumf=sumf+distance(i-1);
+                if i == size(k,1)
+                    num_frame(1,init:size(y,2))=(sumf+1)+num_frame(1,init:size(y,2));
+                end
+            else 
                 num_frame(1,init:size(y,2))=(sumf+1)+num_frame(1,init:size(y,2));
+                init=find(num_frame == k(sumf+2));
+                sumf=0;
             end
-        else 
-            num_frame(1,init:size(y,2))=(sumf+1)+num_frame(1,init:size(y,2));
-            init=find(num_frame == k(sumf+2));
-            sumf=0;
         end
     end
 end

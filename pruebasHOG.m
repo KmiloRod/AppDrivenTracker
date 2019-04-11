@@ -61,7 +61,7 @@ vidName = {'car',...        % 1
         'subway'};          % 30
     
 %%
-video = 6;
+video = 7;
 distored_dataset = strcat('disroed_dataset_',vidName{video});
 
 
@@ -177,10 +177,10 @@ end
 figure
 fr=1;
 imshow(uint8(frames_pristine{fr})); hold on 
-%p = objP;
-p = gtP;
+p = objP;
+%p = gtP;
 
-%p = patchFrame{fr};
+% p = patchFrame{fr};
 % for i=2:size(patchFrame,2)
 %     p=cat(1,p,patchFrame{i});
 % end

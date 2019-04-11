@@ -33,10 +33,11 @@ for i=1:size(Q,2)
 end 
 
 sumf=2;
-for j=1:size(hog,2)
+for i=1:size(hog,2)
+    i
     % 1. Load Data Set-----------------------------------------------------
-    for i=1:M
-        DN{j}(i)= d(j)*q(i)/sum(q); % Data Number for class
+    for j=1:M
+        DN{i}(j)= d(i)*q(j)/sum(q); % Data Number for class
     end
     % 2. Normalize features -----------------------------------------------
     hogN{i}=mapstd(hog{i}); 
@@ -70,33 +71,35 @@ xymax=max(xymax);
 tamano=get(0,'ScreenSize');
 figure('position',[tamano(1) tamano(2) tamano(3) tamano(4)]);
 
+%% Graphics
+% 1 graphic pristine video and distored videos
 for i=1:size(hog,2)
     pause(0.005);
     
     subplot(1,2,1);
     plot(y{i}(1:DN{i}(1),1),y{i}(1:DN{i}(1),2), 'ob',...
-         y{i}(DN{i}(1)+1:sum(DN{i}),1),y{i}(DN{i}(1)+1:sum(DN{i}),2), 'xr');
+         y{i}(DN{i}(1)+1:sum(DN{i}),1),y{i}(DN{i}(1)+1:sum(DN{i}),2), '.r');
     xlim([xymin(1)-1 xymax(1)+1]); ylim([xymin(2)-1 xymax(2)+1]);
     legend('Pristine Video', 'Distored video');
     xlabel('Component 1');ylabel('Component 2');
     title(['Transformation PCA complet video, Num. frame= ' num2str(num_frame(i))]);
-    %hold on; 
+    hold on; 
     
     subplot(1,2,2);
     plot(y{i}(1:DN{i}(1),1),y{i}(1:DN{i}(1),2), 'ob',... %Pristine Video
          y{i}(DN{i}(1)+1:DN{i}(1)+DN{i}(2),1),... %gaussian
-              y{i}(DN{i}(1)+1:DN{i}(1)+DN{i}(2),2), 'xr',... 
+              y{i}(DN{i}(1)+1:DN{i}(1)+DN{i}(2),2), '.r',... 
          y{i}(DN{i}(1)+DN{i}(2)+1:DN{i}(1)+DN{i}(2)+DN{i}(3),1),... %MPEG-4
-              y{i}(DN{i}(1)+DN{i}(2)+1:DN{i}(1)+DN{i}(2)+DN{i}(3),2), 'xg',... 
+              y{i}(DN{i}(1)+DN{i}(2)+1:DN{i}(1)+DN{i}(2)+DN{i}(3),2), '.g',... 
          y{i}(DN{i}(1)+DN{i}(2)+DN{i}(3)+1:DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4),1),...%blurr
-              y{i}(DN{i}(1)+DN{i}(2)+DN{i}(3)+1:DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4),2), 'xy',...  
+              y{i}(DN{i}(1)+DN{i}(2)+DN{i}(3)+1:DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4),2), '.y',...  
          y{i}(DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4)+1:... %salt & pepper
               DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4)+DN{i}(5),1),...
               y{i}(DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4)+1:...
-              DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4)+DN{i}(5),2), 'xc',...
+              DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4)+DN{i}(5),2), '.c',...
          y{i}(DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4)+DN{i}(5)+1:sum(DN{i}),1),... %uneven illumination
-              y{i}(DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4)+DN{i}(5)+1:sum(DN{i}),2), 'xm'); 
-      
+              y{i}(DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4)+DN{i}(5)+1:sum(DN{i}),2), '.m'); 
+    hold on; 
     xlim([xymin(1)-1 xymax(1)+1]); ylim([xymin(2)-1 xymax(2)+1]);
     legend('Pristine', 'gaussian', 'MPEG-4',...
           'blurr', 'salt & pepper', 'uneven illumination');
@@ -106,3 +109,31 @@ for i=1:size(hog,2)
     
     
 end 
+
+% 2 graphic only pristine video
+% 
+% for i=1:size(hog,2)
+%     pause(0.005);
+%     
+%     subplot(1,2,1);
+%     plot(y{i}(1:3,1),y{i}(1:3,2), '.b',... %Pristine Video
+%          y{i}(4:6,1),y{i}(4:6,2),'.r',...
+%          y{i}(7:9,1),y{i}(7:9,2),'.g');
+%     xlim([xymin(1)-1 xymax(1)+1]); ylim([xymin(2)-1 xymax(2)+1]);
+%     legend('column 1', 'column 2', 'column 3');
+%     xlabel('Component 1');ylabel('Component 2');
+%     title(['Transformation PCA complet video, Num. frame= ' num2str(num_frame(i))]);
+%     hold on; 
+%     
+%     subplot(1,2,2);
+%     plot(y{i}(1:3,1),y{i}(1:3,2),'ob',... %Pristine Video
+%          y{i}(4:6,1),y{i}(4:6,2),'or',...
+%          y{i}(7:9,1),y{i}(7:9,2),'og'); 
+%       
+%     xlim([xymin(1)-1 xymax(1)+1]); ylim([xymin(2)-1 xymax(2)+1]);
+%     legend('column 1', 'column 2', 'column 3');
+%     xlabel('Component 1');ylabel('Component 2');
+%     title(['Transformation PCA complet video, Num. frame= ' num2str(num_frame(i))]);
+%    %imshow(uint8(frames_pristine{i}));
+% end 
+
