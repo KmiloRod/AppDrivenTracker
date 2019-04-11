@@ -1,13 +1,17 @@
+% Ing. Carlos Fernando Quiroga 10 / Apr / 2019
 %Analisis de componentes principales PCA
 %La solucion optima se obtiene para un dataset con promedio cero.
+
+%Nota para correr este programa PCA hay que correr primero el programa de
+%pruebasHOG ya que PCA utiliza las variables que se generan.
 
 %--------------------------------------------------------------------------
 % CLASES: 
 % 1 Imagenes pristinas
-% 2 Distorsion MPEG4
-% 3 Distorsion Gaussian
-% 4 Distorsion Blur
-% 5 Distorsion S & P
+% 2 Distorsion MPEG-4
+% 3 Distorsion gaussian
+% 4 Distorsion blur
+% 5 Distorsion salt & pepper
 % 6 Distorsion uneven illumination
 %--------------------------------------------------------------------------
 
@@ -15,40 +19,90 @@
 
 %Donde hogS es la matriz de caracteristicas para las imagenes pristinas y distorsionadas
 %dadas por la fucion extraccionHogs
-[x,t] = extraccionHogs('video'); %Etiquetado de clases para cada ejemplo
+%[x,t] = extraccionHogs('video'); %Etiquetado de clases para cada ejemplo
 
-[d,N]=size(x); % N Numero de datos del Data-Set, d dimension
-M=6;  % M Numero de clases, imagenes pristinas y con distorsiones sinteticas
+for i = 1:size(hog,2)
+    [d(i),N(i)]=size(hog{i}); %N Numero caracteristicas Data-Set x frame, d ejemplos x frame
+end
 
-N1=N/M; N2=N/M; N3=N/M; N4=N/M; N5=N/M; N6=N/M; % Data Number for class
-Nxclass=[N1 N2 N3 N4 N5 N6];
+M=size(distorsion,2)+1; %Numero de clases sin difereciar el nivel de distorsion(numero de distorsiones + imagen pristina)
 
-% 2. Normalize features
-x=mapstd(x);
+q(1)=1;
+for i=1:size(Q,2)
+    q(i+1)=size(Q{i},2);
+end 
 
-% 3. Principal Component Analysis  
+sumf=2;
+for j=1:size(hog,2)
+    % 1. Load Data Set-----------------------------------------------------
+    for i=1:M
+        DN{j}(i)= d(j)*q(i)/sum(q); % Data Number for class
+    end
+    % 2. Normalize features -----------------------------------------------
+    hogN{i}=mapstd(hog{i}); 
+    
+    % 3. Principal Component Analysis  ------------------------------------
+    R{i}=cov(hogN{i}); % Autocorrelation Matrix (Covariance Matrix)
+    [V{i},D{i}] = eig(R{i}); % Eigendecomposition
+    
+    % Sort the eigenvectors and eigenvalues
+    lamda{i}=diag(D{i});
+    [eigenval{i},ind{i}]=sort(lamda{i}','descend');
+    eigenvec{i}=V{i}(:,ind{i});
+    
+    % 4. Selección de l eigenvectors (l<d)---------------------------------
+    A{i}=eigenvec{i}(:,1:sumf);
+    % Porcentaje Varianza Retenida
+    Pvar(i)=sum(eigenval{i}(1:sumf))*100/sum(eigenval{i});
+    
+    % 5. Data set Transformed----------------------------------------------
+    y{i}=(A{i}'*hogN{i}')';
+    xymin(i,:)=min(y{i});
+    xymax(i,:)=max(y{i});
+    
+end
 
-R=cov(x'); % Autocorrelation Matrix (Covariance Matrix)
+num_frame = numFrame(y,k);
 
-% Eigendecomposition
-[V,D] = eig(R);
+xymin=min(xymin);
+xymax=max(xymax);
 
-% Sort the eigenvectors and eigenvalues
-lamda=diag(D);
-[eigenval,ind]=sort(lamda','descend');
-eigenvec=V(:,ind);
+tamano=get(0,'ScreenSize');
+figure('position',[tamano(1) tamano(2) tamano(3) tamano(4)]);
 
-% 4. Selección de l eigenvectors (l<d)
-l=2;
-A=eigenvec(:,1:l);
-% Porcentaje Varianza Retenida
-Pvar=sum(eigenval(1:l))*100/sum(eigenval);
-
-% 5. Data set Transformed
-y=A'*x;
-
-% 6. Display the data set in transformed space
-plot(y(1, 1:N1),y(2, 1:N1), 'or', y(1, N1+1:N1+N2),y(2, N1+1:N1+N2), 'og',...
-     y(1, N1+N2+1:N1+N2+N3),y(2, N1+N2+1:N1+N2+N3), 'ob'  )
-legend('class1', 'class2', 'class3'); xlabel('y1');ylabel('y2');
-title(['Transformation PCA: d=' num2str(d)  '  l=' num2str(l)  ' Pvar=' num2str(Pvar)]);
+for i=1:size(hog,2)
+    pause(0.005);
+    
+    subplot(1,2,1);
+    plot(y{i}(1:DN{i}(1),1),y{i}(1:DN{i}(1),2), 'ob',...
+         y{i}(DN{i}(1)+1:sum(DN{i}),1),y{i}(DN{i}(1)+1:sum(DN{i}),2), 'xr');
+    xlim([xymin(1)-1 xymax(1)+1]); ylim([xymin(2)-1 xymax(2)+1]);
+    legend('Pristine Video', 'Distored video');
+    xlabel('Component 1');ylabel('Component 2');
+    title(['Transformation PCA complet video, Num. frame= ' num2str(num_frame(i))]);
+    %hold on; 
+    
+    subplot(1,2,2);
+    plot(y{i}(1:DN{i}(1),1),y{i}(1:DN{i}(1),2), 'ob',... %Pristine Video
+         y{i}(DN{i}(1)+1:DN{i}(1)+DN{i}(2),1),... %gaussian
+              y{i}(DN{i}(1)+1:DN{i}(1)+DN{i}(2),2), 'xr',... 
+         y{i}(DN{i}(1)+DN{i}(2)+1:DN{i}(1)+DN{i}(2)+DN{i}(3),1),... %MPEG-4
+              y{i}(DN{i}(1)+DN{i}(2)+1:DN{i}(1)+DN{i}(2)+DN{i}(3),2), 'xg',... 
+         y{i}(DN{i}(1)+DN{i}(2)+DN{i}(3)+1:DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4),1),...%blurr
+              y{i}(DN{i}(1)+DN{i}(2)+DN{i}(3)+1:DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4),2), 'xy',...  
+         y{i}(DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4)+1:... %salt & pepper
+              DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4)+DN{i}(5),1),...
+              y{i}(DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4)+1:...
+              DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4)+DN{i}(5),2), 'xc',...
+         y{i}(DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4)+DN{i}(5)+1:sum(DN{i}),1),... %uneven illumination
+              y{i}(DN{i}(1)+DN{i}(2)+DN{i}(3)+DN{i}(4)+DN{i}(5)+1:sum(DN{i}),2), 'xm'); 
+      
+    xlim([xymin(1)-1 xymax(1)+1]); ylim([xymin(2)-1 xymax(2)+1]);
+    legend('Pristine', 'gaussian', 'MPEG-4',...
+          'blurr', 'salt & pepper', 'uneven illumination');
+    xlabel('Component 1');ylabel('Component 2');
+    title(['Transformation PCA complet video, Num. frame= ' num2str(num_frame(i))]);
+    %imshow(uint8(frames_pristine{i}));
+    
+    
+end 
