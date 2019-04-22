@@ -61,7 +61,7 @@ vidName = {'car',...        % 1
         'subway'};          % 30
     
 %%
-video = 2;
+video = 7;
 distored_dataset = strcat('disroed_dataset_',vidName{video});
 
 
@@ -140,7 +140,7 @@ Q{5} = 1e-5*[1, 3, 5];       % uneven illumination
 
 patchFrame = videoPatch(gtP,frames,0);
 
-charac = 2;
+charac = 1;
 
 switch charac
     case 1
@@ -171,17 +171,17 @@ switch charac
     case 2
     %-------Calculo de los NSS para los frames pristinos y distorsionados-----
         j=1;
-        k=[];% frames a los cuales no se les calculo las caracteristicas NSS
+        k=[];% frames a los cuales no se les calculo las caracteristicas HOGs
         for i = 1:numOfFrames
             i
             hog_distored{j}=[];
 
             if isempty(patchFrame{i}) == 0
                 hog_p = hogNSSFeat(frames_pristine{i},patchFrame{i},1,1);
-                hog_pristine{j}=hog_p(:,size(hog_p,2)-35:size(hog_p,2));
+                hog_pristine{j}=hog_p(:,size(hog_pristine{1},2)-35:size(hog_pristine{1},2));
                 for d = 1 : size(frames_distored{i},2)
                     hog_d = hogNSSFeat(frames_distored{i}{d},patchFrame{i},1,1);
-                    hog_distored{j}=cat(1,hog_distored{j},hog_d(:,size(hog_pristine{1},2)-35:size(hog_pristine{1},2)));
+                    hog_distored{j}=cat(1,hog_distored{j},hog_d);
                 end
 
                 hog{j}=[hog_pristine{j};hog_distored{j}];
@@ -194,6 +194,9 @@ switch charac
             end     
         end
 end
+
+
+
 
 
 %% Dibuja la imagen y los parches en la imagen
