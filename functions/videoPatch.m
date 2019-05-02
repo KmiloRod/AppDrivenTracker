@@ -1,5 +1,4 @@
-function patchFrame = videoPatch(gtP,frames,class)
-
+% Ing. Carlos Fernando Quiroga, 13/03/2019
 % Function that calculates a cell array data type, which contains for each
 % frame the location of the main patch and the surrounding eight patches
 % which are used for the analysis of the extraction of the
@@ -12,6 +11,7 @@ function patchFrame = videoPatch(gtP,frames,class)
 %in case of choosing the same size, the size is chosen with the dimensions 
 %of the first frame.
 
+function patchFrame = videoPatch(gtP,frames,class)
 
     height = size(frames,1);
     width = size(frames,2);
@@ -43,8 +43,7 @@ function patchFrame = videoPatch(gtP,frames,class)
                 patchFrame{i}(7,:) = [gtP(i,1)+2  gtP(i,2)+2  gtP(i,3)    gtP(i,4)];
             end  
     end
-    
-    
+        
     for i = 1:size(gtP,1)
         fila=[];
         for j = 1:size(patchFrame{i},1)

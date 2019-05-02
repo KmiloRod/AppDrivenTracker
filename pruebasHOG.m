@@ -2,15 +2,6 @@
 %% Programa para extraer las caracteristicas hogs de los videos por cada frame
 
 
-%Nota: para la funcion extraccionHogs que se va a desarrollar a partir de
-%este codigo las variables de salida son:
-%1. Arreglo tipo cell "hog" contiene todos los hogs calculados para cada frame
-%en imagen pristina y con 5 clases de distorsiones.
-%2. Etiquetado de las caracteristicas HOG
-%3. Arreglo tipo cell "distorsiones" que contiene el tipo de distorsión y
-%el orden en que son aplicadas.
-%4. Q = arreglo tipo cell que indica el nivel de distorsion
-%--------------------------------------------------------------------------
 % CLASES: 
 % 1 Imagenes pristinas
 % 2 Distorsion gaussian
@@ -109,93 +100,24 @@ Q{5} = 1e-5*[1, 3, 5];       % uneven illumination
 
 % Generate distorted version of the video
 
-%Descomentar esta seccion si se va a correr el programa por primera vez,
-%con un video diferente, hay que tener en cuenta que la variable
-%frames_distored debe de ser guardada para acelerar el proceso de calculos
-%posteriores.
-% 
-% for i=1:numOfFrames
-%     i
-%     f=1;
-%     for d=1:size(distorsion,2)
-%         for n=1:size(Q{d},2)
-%             if isequal(distorsion{d},'gaussian')
-%                 frames_d = vidnoise(uint8(frames_pristine{i}),distorsion{d},[0 Q{d}(n)]);
-%                 frames_distored{i}{f} = uint8(frames_d);
-%             elseif isequal(distorsion{d},'MPEG-4')
-%                 frames_d = rgb2gray(vidnoise(uint8(frames_pristine{i}),distorsion{d},Q{d}(n)));
-%                 frames_distored{i}{f} = uint8(frames_d);
-%             else
-%                 frames_d = vidnoise(uint8(frames_pristine{i}),distorsion{d},Q{d}(n));
-%                 frames_distored{i}{f} = uint8(frames_d);
-%             end 
-%             f=f+1;
-%         end
-%     end
-% end
+% frames_distored = distoredDataset(frames_pristine,numOfFrames,distorsion,Q);
 % 
 % distored_dataset = strcat('disroed_dataset_',vidName{video});
 % save(distored_dataset,'frames_distored')
 %% Calculo de los HOG y NSS Data set characteristics
 
-patchFrame = videoPatch(gtP,frames,0);
+patchFrame0 = videoPatch(gtP,frames,0); %0: Equal size patches, 1: Different Size patches 
+%patchFrame1 = videoPatch(gtP,frames,1);
+charac2 = 2; %1:HOG , 2:NSS, 3:HOG_NSS
+charac1 = 1;
 
-charac = 2;
-
-switch charac
-    case 1
-    %-------Calculo de los HOGs para los frames pristinos y distorsionados-----
-        j=1;
-        k=[];% frames a los cuales no se les calculo las caracteristicas HOGs
-        for i = 1:numOfFrames
-            i
-            hog_distored{j}=[];
-
-            if isempty(patchFrame{i}) == 0
-                hog_pristine{j} = hogNSSFeat(frames_pristine{i},patchFrame{i},0,0);
-
-                for d = 1 : size(frames_distored{i},2)
-                    hog_d = hogNSSFeat(frames_distored{i}{d},patchFrame{i},0,0);
-                    hog_distored{j}=cat(1,hog_distored{j},hog_d);
-                end
-
-                hog{j}=[hog_pristine{j};hog_distored{j}];
-
-                %imshow(uint8((hog{j}/max(max(hog{j})))*255))
-
-                j=j+1;
-            else
-                k=cat(1,k,i);
-            end     
-        end
-    case 2
-    %-------Calculo de los NSS para los frames pristinos y distorsionados-----
-        j=1;
-        k=[];% frames a los cuales no se les calculo las caracteristicas NSS
-        for i = 1:numOfFrames
-            i
-            hog_distored{j}=[];
-
-            if isempty(patchFrame{i}) == 0
-                hog_p = hogNSSFeat(frames_pristine{i},patchFrame{i},1,1);
-                hog_pristine{j}=hog_p(:,size(hog_p,2)-35:size(hog_p,2));
-                for d = 1 : size(frames_distored{i},2)
-                    hog_d = hogNSSFeat(frames_distored{i}{d},patchFrame{i},1,1);
-                    hog_distored{j}=cat(1,hog_distored{j},hog_d(:,size(hog_pristine{1},2)-35:size(hog_pristine{1},2)));
-                end
-
-                hog{j}=[hog_pristine{j};hog_distored{j}];
-
-                %imshow(uint8((hog{j}/max(max(hog{j})))*255))
-
-                j=j+1;
-            else
-                k=cat(1,k,i);
-            end     
-        end
-end
+[nss,k]=hog_nss(numOfFrames,patchFrame0,frames_pristine,frames_distored, charac2);
+%[hog0]=hog_nss(numOfFrames,patchFrame0,frames_pristine,frames_distored, charac1);
 
 
+%[nss1]=hog_nss(numOfFrames,patchFrame1,frames_pristine,frames_distored, charac2);
+%[hog1]=hog_nss(numOfFrames,patchFrame1,frames_pristine,frames_distored, charac1);
+%[hognss, k]=hog_nss(numOfFrames,patchFrame,frames_pristine,frames_distored, 3);
 %% Dibuja la imagen y los parches en la imagen
 
 % figure
