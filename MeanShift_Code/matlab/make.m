@@ -7,8 +7,6 @@ try
 		mex libsvmwrite.c
 		mex -I.. svmtrain.c ../svm.cpp svm_model_matlab.c
 		mex -I.. svmpredict.c ../svm.cpp svm_model_matlab.c
-        mex -I.. svmtrain2.c ../svm.cpp svm_model_matlab.c
-		mex -I.. svmpredict2.c ../svm.cpp svm_model_matlab.c
 	% This part is for MATLAB
 	% Add -largeArrayDims on 64-bit machines of MATLAB
 	else
@@ -16,9 +14,7 @@ try
 		mex CFLAGS="\$CFLAGS -std=c99" -largeArrayDims libsvmwrite.c
 		mex CFLAGS="\$CFLAGS -std=c99" -I.. -largeArrayDims svmtrain.c ../svm.cpp svm_model_matlab.c
 		mex CFLAGS="\$CFLAGS -std=c99" -I.. -largeArrayDims svmpredict.c ../svm.cpp svm_model_matlab.c
-		mex CFLAGS="\$CFLAGS -std=c99" -I.. -largeArrayDims svmtrain2.c ../svm.cpp svm_model_matlab.c
-		mex CFLAGS="\$CFLAGS -std=c99" -I.. -largeArrayDims svmpredict2.c ../svm.cpp svm_model_matlab.c	
-    end
+	end
 catch err
 	fprintf('Error: %s failed (line %d)\n', err.stack(1).file, err.stack(1).line);
 	disp(err.message);

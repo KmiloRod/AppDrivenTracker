@@ -18,7 +18,15 @@ path(path,'./matlab')
 path(path,'./videos')
 
 % List of used videos
-vidName = {'car','jumping','pedestrian1','pedestrian2','pedestrian3','charger','cameraJuan','gurgaon'};
+vidName = {'car',...        %1
+           'jumping',...    %2
+           'pedestrian1',...%3
+           'pedestrian2',...%4
+           'pedestrian3',...%5
+           'charger',...    %6
+           'cameraJuan',... %7
+           'gurgaon'...     %8
+          };
 
 % Names of ground-truth files for each video
 gtName  = {'car_gt','jumping_gt','pedestrian1_gt','pedestrian2_gt','pedestrian3_gt','charger_gt','cameraJuan_gt','gurgaon_gt'};
@@ -450,6 +458,7 @@ xlabel('Overlap threshold');
 ylabel('Success rate');
 legend('show','Location','southwest');
 saveas(gcf,strcat('./SVM_new_results/Video_',num2str(v),'_SP_',Distortion,'_Cs',num2str(Cs)),'epsc');
+saveas(gcf,strcat('./SVM_new_results/Video_',num2str(v),'_SP_',Distortion,'_Cs',num2str(Cs)),'png');
 %close;
 
 % Save tests results

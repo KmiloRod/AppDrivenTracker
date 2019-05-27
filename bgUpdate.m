@@ -1,4 +1,4 @@
-function [hogFeatSet_nxt,bgKeys_nxt] = bgUpdate(I,method,perUpd,objbbox_curr,bgP_curr,bgKeys_curr,hogFeatSet_curr)
+function [hogFeatSet_nxt,bgKeys_nxt,u_new,st_new,n_patch_new] = bgUpdate(I,method,perUpd,objbbox_curr,bgP_curr,bgKeys_curr,hogFeatSet_curr,Norm,u_old,st_old,n_patch_old)
 
 % I: current frame
 % method: 'mvc' or 'msp' that stand for maximum variance change and 
@@ -11,11 +11,17 @@ function [hogFeatSet_nxt,bgKeys_nxt] = bgUpdate(I,method,perUpd,objbbox_curr,bgP
 % further info.
 % hogFeatSet_curr: matrix containing both hog feature vectors of both the
 % object and background patches at the current frame
+% Norm, indicates whether the feature vectors are going to be 
+% normalized or not in the range of [0-1]
 
 imSize = size(I); 
 Nbg  = size(bgP_curr,1);
 Nobj = size(hogFeatSet_curr,1)-Nbg;
 Nadd = round(Nbg*perUpd);
+u_new = [];
+st_new = [];
+n_patch_new = [];
+
 
                     
 switch method
@@ -43,7 +49,7 @@ switch method
             bgKeys_curr(ibgP_nxt) = bgPVar_nxt;
             bgP_nxt = bgP_curr(ibgP_nxt,:);
 %             hogSbg_nxt = hogFeat(I,bgP_nxt);
-            hogSbg_nxt = hogNSSFeat(I,bgP_nxt,0,1); % HOG features from patches to update
+            [hogSbg_nxt,u_new,st_new,n_patch_new] = hogNSSFeat(I,bgP_nxt,0,1,Norm,u_old,st_old,n_patch_old); % HOG features from patches to update
             alpha1 = 0.35;
             alpha2 = 0.65;
             hogFeatSet_curr(Nobj+ibgP_nxt,:) = alpha1*hogSbg_nxt + alpha2*hogFeatSet_curr(Nobj+ibgP_nxt,:);

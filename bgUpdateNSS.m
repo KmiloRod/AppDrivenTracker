@@ -1,15 +1,22 @@
-function [hogFeatSet_nxt,bgKeys_nxt,NSSSet_nxt] = bgUpdateNSS(I,method,perUpd,objbbox_curr,bgP_curr,bgKeys_curr,hogFeatSet_curr,NSSSet_curr,Cs)
+function [hogFeatSet_nxt,bgKeys_nxt,NSSSet_nxt,u_new,st_new,n_patch_new] = ...
+bgUpdateNSS(I,method,perUpd,objbbox_curr,bgP_curr,bgKeys_curr,hogFeatSet_curr,...
+NSSSet_curr,Cs,Norm,u_old,st_old,n_patch_old)
 
 % I: current frame
 % objbbox_curr: object bounding box at current frame I
 % bgP_curr: background Patches
 % objHOGfeat_curr: HOG features of the bg patches
+% Norm, indicates whether the feature vectors are going to be 
+% normalized or not in the range of [0-1]
 
 imSize = size(I); 
 Nbg  = size(bgP_curr,1);
 Nobj = size(hogFeatSet_curr,1)-Nbg;
 Nadd = round(Nbg*perUpd);   % Number of background patches to be updated
 
+u_new = [];
+st_new = [];
+n_patch_new= [];
                     
 switch method
     case 'msp' % minimum spatial proximity
@@ -40,7 +47,7 @@ switch method
 %             NSSbg_nxt = nssFeat(I,bgP_nxt) / Cs; % NSS features from patches to update
 
             % New functions (OpenCV)
-            featuresSbg_nxt = hogNSSFeat(I,bgP_nxt,1,Cs);
+            [featuresSbg_nxt,u_new,st_new,n_patch_new] = hogNSSFeat(I,bgP_nxt,1,Cs,Norm,u_old,st_old,n_patch_old);
             hogSbg_nxt = featuresSbg_nxt(:,1:end-36); % HOG features from patches to update
             NSSbg_nxt = featuresSbg_nxt(:,end-35:end); % NSS features from patches to update
 

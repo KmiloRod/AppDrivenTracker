@@ -52,7 +52,7 @@ vidName = {'car',...        % 1
         'subway'};          % 30
     
 %%
-video = 2;
+video = 6;
 distored_dataset = strcat('disroed_dataset_',vidName{video});
 
 
@@ -108,16 +108,13 @@ Q{5} = 1e-5*[1, 3, 5];       % uneven illumination
 
 patchFrame0 = videoPatch(gtP,frames,0); %0: Equal size patches, 1: Different Size patches 
 %patchFrame1 = videoPatch(gtP,frames,1);
-charac2 = 2; %1:HOG , 2:NSS, 3:HOG_NSS
+charac2 = 3; %1:HOG , 2:NSS, 3:HOG_NSS
 charac1 = 1;
 
-[nss,k]=hog_nss(numOfFrames,patchFrame0,frames_pristine,frames_distored, charac2);
+[nss,k]=hog_nss(numOfFrames,patchFrame0,frames_pristine,frames_distored, charac2,1);
 %[hog0]=hog_nss(numOfFrames,patchFrame0,frames_pristine,frames_distored, charac1);
 
 
-%[nss1]=hog_nss(numOfFrames,patchFrame1,frames_pristine,frames_distored, charac2);
-%[hog1]=hog_nss(numOfFrames,patchFrame1,frames_pristine,frames_distored, charac1);
-%[hognss, k]=hog_nss(numOfFrames,patchFrame,frames_pristine,frames_distored, 3);
 %% Dibuja la imagen y los parches en la imagen
 
 % figure

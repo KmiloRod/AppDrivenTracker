@@ -1,5 +1,5 @@
 % Ing. Carlos Fernando Quiroga 22 / Apr / 2019
-%Principal component analysis PCA
+%Principal component analysis PCA,
 %The optimal solution is obtained for a dataset with a zero average.
 
 %The PCA function receives as parameters:
@@ -14,15 +14,15 @@
 % by each frame.
 
 
-function [Y, Pvar]= PCA_(X,sumf)
+function [Y, Pvar]= pcaFrame(X,sumf)
 
         
-    for i=1:size(X,2)
+
         
         % 1. Load Data Set-----------------------------------------------------
 
         % 2. Normalize features -----------------------------------------------
-        hogN=mapstd(X{i}); 
+        hogN=mapstd(X); 
         %hogN=mapstd(X(i)); 
         
         % 3. Principal Component Analysis  ------------------------------------
@@ -37,11 +37,10 @@ function [Y, Pvar]= PCA_(X,sumf)
         % 4. Selección de l eigenvectors (l<d)---------------------------------
         A=eigenvec(:,1:sumf);
         % Porcentaje Varianza Retenida
-        Pvar(i)=sum(eigenval(1:sumf))*100/sum(eigenval);
+        Pvar=sum(eigenval(1:sumf))*100/sum(eigenval);
 
         % 5. Data set Transformed----------------------------------------------
-        Y{i}=(A'*hogN')';
+        Y=(A'*hogN')';
 
-    end
 
 end

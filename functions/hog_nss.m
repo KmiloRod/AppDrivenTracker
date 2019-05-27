@@ -14,8 +14,12 @@
 % - hognss: These are the HOG or NSS features, depending on what has been chosen. (cell)
 % - k: Frames to which features are not calculated.
 
-function [hognss, k]=hog_nss(numOfFrames,patchFrame,frames_pristine,frames_distored, charac)
-
+function [hognss, k]=hog_nss(numOfFrames,patchFrame,frames_pristine,frames_distored, charac,Norm)
+    
+    n = 0;
+    if Norm
+        n = 1;
+    end
     switch charac
         case 1
         %-------Calculation of the HOGs for the pristine and distorted frames-----
@@ -26,10 +30,10 @@ function [hognss, k]=hog_nss(numOfFrames,patchFrame,frames_pristine,frames_disto
                 hog_distored{j}=[];
 
                 if isempty(patchFrame{i}) == 0
-                    hog_pristine{j} = hogNSSFeat(frames_pristine{i},patchFrame{i},0,0);
+                    hog_pristine{j} = hogNSSFeat(frames_pristine{i},patchFrame{i},0,1,n);
 
                     for d = 1 : size(frames_distored{i},2)
-                        hog_d = hogNSSFeat(frames_distored{i}{d},patchFrame{i},0,0);
+                        hog_d = hogNSSFeat(frames_distored{i}{d},patchFrame{i},0,1,n);
                         hog_distored{j}=cat(1,hog_distored{j},hog_d);
                     end
 
@@ -51,10 +55,10 @@ function [hognss, k]=hog_nss(numOfFrames,patchFrame,frames_pristine,frames_disto
                 nss_distored=[];
 
                 if isempty(patchFrame{i}) == 0
-                    nss_p = hogNSSFeat(frames_pristine{i},patchFrame{i},1,1);
+                    nss_p = hogNSSFeat(frames_pristine{i},patchFrame{i},1,1,n);
                     nss_pristine=nss_p(:,size(nss_p,2)-35:size(nss_p,2));
                     for d = 1 : size(frames_distored{i},2)
-                        nss_d = hogNSSFeat(frames_distored{i}{d},patchFrame{i},1,1);
+                        nss_d = hogNSSFeat(frames_distored{i}{d},patchFrame{i},1,1,n);
                         nss_distored=cat(1,nss_distored,nss_d(:,size(nss_p,2)-35:size(nss_p,2)));
                     end
 
@@ -67,7 +71,7 @@ function [hognss, k]=hog_nss(numOfFrames,patchFrame,frames_pristine,frames_disto
                     k=cat(1,k,i);
                 end     
             end
-        otherwise
+        case 3
         %-------Calculation of the HOG and NSS for the pristine and distorted frames-----
             j=1;
             k=[];% frames to which the NSS characteristics were not calculated
@@ -76,10 +80,10 @@ function [hognss, k]=hog_nss(numOfFrames,patchFrame,frames_pristine,frames_disto
                 nss_distored=[];
 
                 if isempty(patchFrame{i}) == 0
-                    nss_p = hogNSSFeat(frames_pristine{i},patchFrame{i},1,1);
+                    nss_p = hogNSSFeat(frames_pristine{i},patchFrame{i},1,1,n);
                     nss_pristine=nss_p;
                     for d = 1 : size(frames_distored{i},2)
-                        nss_d = hogNSSFeat(frames_distored{i}{d},patchFrame{i},1,1);
+                        nss_d = hogNSSFeat(frames_distored{i}{d},patchFrame{i},1,1,n);
                         nss_distored=cat(1,nss_distored,nss_d);
                     end
 
@@ -92,5 +96,9 @@ function [hognss, k]=hog_nss(numOfFrames,patchFrame,frames_pristine,frames_disto
                     k=cat(1,k,i);
                 end     
             end
+        case 4
+        %------Calculation of the HOG normalized zscore characteristics for 
+      
+        otherwise
     end
 end

@@ -1,4 +1,4 @@
-function [featMat] = hogNSSFeat(I,P,NSS,Cs)
+function [featMat,u_actual,st_actual,n_patch_tot] = hogNSSFeat(I,P,NSS,Cs,Norm,u_old,st_old,n_patch_old)
 
 % hogFeat receives an gray-scale image I, a N-by-4 matrix of
 % patches P where N is the number of patches; a patch (or row) of P is a
@@ -7,7 +7,9 @@ function [featMat] = hogNSSFeat(I,P,NSS,Cs)
 % the width and height of the bounding box. NSS is a logical parameter,
 % where a value of 1 indicates to add the NSS features to the final feature
 % vector. Cs is the scaling parameter that is used to calculate the final
-% vector.
+% vector.Norm, indicates whether the feature vectors are going to be 
+% normalized or not in the range of [0-1] or normalized with zscore
+% technique
 %
 % hogFeat returns the N-by-Nfeat matrix consisting of the HOG and NSS
 % representation of each patch in P.
@@ -20,6 +22,10 @@ I = uint8(I);
 P = int32(P);
 NSS = logical(NSS);
 Cs = single(Cs);
+u_actual=[];
+st_actual=[];
+n_patch_tot=[];
+
 
 % HOG features paramters
 nPatch = size(P,1);
@@ -31,6 +37,26 @@ hogParams = parseInputs(patchSize, 'CellSize',CellSize,...
 
 [featMat, featLength] = hogNSSFeatOCV(I, P, NSS, Cs, hogParams);
 featMat = double(reshape(featMat, [featLength nPatch])');
+
+    switch Norm
+            
+        case 1 %0-1 Linear Normalize
+                featMat = normalize(featMat,'range');
+
+        case 2 % Z-Score
+                ft_actual = featMat;
+                u = mean(ft_actual);
+                st = std(ft_actual);
+                n_patch_actual=size(ft_actual,1);
+                n_patch_tot=n_patch_old+n_patch_actual;
+                
+                u_actual = (n_patch_old*u_old + n_patch_actual*u)/n_patch_tot;
+                st_actual = (n_patch_old*st_old + n_patch_actual*st)/n_patch_tot;
+
+                featMat=(ft_actual-u_actual)/st_actual;
+        otherwise
+                       
+    end   
 
 end
 % -------------------------------------------------------------------------
